@@ -17,9 +17,9 @@ contract OpenStaking is ERC20, Ownable, ReentrancyGuard {
     using SafeCast for uint256;
 
     struct Config {
-        uint64 periodFinish;
-        uint64 periodStart;
-        uint128 totalReward;
+        uint128 periodFinish;
+        uint128 periodStart;
+        uint256 totalReward;
     }
 
     IERC20 private _stakeToken;
@@ -34,8 +34,8 @@ contract OpenStaking is ERC20, Ownable, ReentrancyGuard {
     constructor(
         string memory _symbol,
         IERC20 _stakeTokenAddress,
-        uint64 _periodStart,
-        uint64 _rewardsDuration
+        uint128 _periodStart,
+        uint128 _rewardsDuration
     ) ERC20("Open Staking Share", _symbol) {
         require(
             address(_stakeTokenAddress) != address(0),
@@ -45,17 +45,11 @@ contract OpenStaking is ERC20, Ownable, ReentrancyGuard {
         _setPeriod(_periodStart, _rewardsDuration);
     }
 
-    function _setPeriod(uint64 _periodStart, uint64 _rewardsDuration) internal {
+    function _setPeriod(uint128 _periodStart, uint128 _rewardsDuration) internal {
         require(_periodStart >= block.timestamp, "Open Staking: _periodStart shouldn't be in the past");
         require(_rewardsDuration > 0, "Open Staking: Invalid rewards duration");
 
-        Config memory cfg = _config;
-        require(
-            cfg.periodFinish < block.timestamp,
-            "Open Staking: The last reward period should be finished before setting a new one"
-        );
-
-        uint64 _periodFinish = _periodStart + _rewardsDuration;
+        uint128 _periodFinish = _periodStart + _rewardsDuration;
         _config.periodStart = _periodStart;
         _config.periodFinish = _periodFinish;
         _config.totalReward = 0;
@@ -66,7 +60,7 @@ contract OpenStaking is ERC20, Ownable, ReentrancyGuard {
         require(block.timestamp < cfg.periodFinish, "Open Staking: Adding rewards is forbidden");
 
         _stakeToken.safeTransferFrom(msg.sender, address(this), _tokenAmount);
-        cfg.totalReward += _tokenAmount.toUint128();
+        cfg.totalReward += _tokenAmount;
         _config = cfg;
 
         emit RewardAdded(_tokenAmount);
