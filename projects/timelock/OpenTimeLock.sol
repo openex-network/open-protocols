@@ -46,7 +46,6 @@ contract OpenTimeLock is ReentrancyGuard {
     }
 
     function unlock() external nonReentrant {
-        require(block.timestamp < config.periodFinish, "Open Time Lock: Lock period has ended");
         require(block.timestamp > config.periodStart, "Open Time Lock: Lock period has not started");
 
         uint256 unlockedTokenAmount = getUnlockedTokenAmount();
