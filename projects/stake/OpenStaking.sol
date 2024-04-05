@@ -26,10 +26,17 @@ contract OpenStaking is ERC20, Ownable, ReentrancyGuard {
     Config private _config;
     mapping(address => uint256) private _lastStakedTime;
 
-    // Events
     event RewardAdded(uint256 tokenAmount);
     event Staked(address indexed user, uint256 tokenAmount);
     event Claimed(address indexed user, uint256 share);
+
+    modifier afterStakingPeriod(address account) {
+        require(
+            block.timestamp > _lastStakedTime[account] + 3600,
+            "Open Staking: Operation not allowed yet. Wait for 1 hour after staking."
+        );
+        _;
+    }
 
     constructor(
         string memory _symbol,
@@ -90,12 +97,8 @@ contract OpenStaking is ERC20, Ownable, ReentrancyGuard {
         emit Staked(msg.sender, _tokenAmount);
     }
 
-    function claim(uint256 _share) external nonReentrant {
+    function claim(uint256 _share) external nonReentrant afterStakingPeriod(msg.sender) {
         require(_share > 0, "Open Staking: Should at least unstake something");
-        require(
-            block.timestamp > _lastStakedTime[msg.sender] + 30,
-            "Open Staking: Must wait 30 seconds after staking to claim"
-        );
 
         uint256 totalToken = getTokenPool();
         uint256 totalShare = totalSupply();
@@ -106,6 +109,18 @@ contract OpenStaking is ERC20, Ownable, ReentrancyGuard {
         _stakeToken.safeTransfer(msg.sender, _tokenAmount);
 
         emit Claimed(msg.sender, _share);
+    }
+
+    function transfer(address recipient, uint256 amount) public override afterStakingPeriod(msg.sender) returns (bool) {
+        return super.transfer(recipient, amount);
+    }
+
+    function transferFrom(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) public override afterStakingPeriod(sender) returns (bool) {
+        return super.transferFrom(sender, recipient, amount);
     }
 
     function getTokenPool() public view returns (uint256) {
