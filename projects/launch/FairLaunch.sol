@@ -27,10 +27,12 @@ contract FairLaunch is ReentrancyGuard, Ownable {
         uint256 minPassToken;
         uint64 startTime;
         uint64 endTime;
+        uint64 closeTime;
     }
 
     LaunchConfig public config;
 
+    event Deposited(address indexed user, uint256 tokenAAmount);
     event Exchanged(address indexed user, uint256 tokenBAmount, uint256 tokenAAmount);
     event Refunded(address indexed user, uint256 tokenAAmount);
     event Claimed(address indexed user, uint256 tokenAAmount);
@@ -44,6 +46,7 @@ contract FairLaunch is ReentrancyGuard, Ownable {
         require(_config.minTotalExchange > 0, "Min total exchange must be greater than 0");
         require(_config.startTime < _config.endTime, "Start time must be before end time");
         require(_config.endTime > block.timestamp, "End time must be in the future");
+        require(_config.closeTime > _config.endTime + 24 * 3600, "Close time must be after end time + 24 hours");
         require(
             _config.minTotalExchange <= _config.maxTotalExchange,
             "Min total exchange must be less than or equal to max total exchange"
@@ -59,14 +62,26 @@ contract FairLaunch is ReentrancyGuard, Ownable {
     }
 
     modifier onlyEnded() {
-        require(block.timestamp > config.endTime, "Launch not ended");
+        require(block.timestamp > config.endTime && block.timestamp < config.closeTime, "Launch not ended");
         _;
     }
 
-    function withdrawRemainingTokenA() external onlyOwner onlyEnded {
+    modifier onlyClosed() {
+        require(block.timestamp > config.closeTime, "Launch not closed");
+        _;
+    }
+
+    function depositTokenA(uint256 tokenAAmount) external nonReentrant {
+        config.tokenA.safeTransfer(msg.sender, tokenAAmount);
+        emit Deposited(msg.sender, tokenAAmount);
+    }
+
+    function withdrawRemainingTokens() external onlyOwner onlyClosed {
         require(config.totalExchanged < config.minTotalExchange, "Withdraw not available");
         uint256 remainingTokenA = config.tokenA.balanceOf(address(this));
         config.tokenA.safeTransfer(msg.sender, remainingTokenA);
+        uint256 remainingTokenB = config.tokenB.balanceOf(address(this));
+        config.tokenB.safeTransfer(msg.sender, remainingTokenB);
     }
 
     function exchange(uint256 tokenBAmount) external nonReentrant onlyStarted {
@@ -77,7 +92,11 @@ contract FairLaunch is ReentrancyGuard, Ownable {
         require(config.totalExchanged + tokenAAmount <= config.maxTotalExchange, "Exceeds max total exchange");
         require(
             config.minPassToken <= 0 || IERC20(config.passToken).balanceOf(msg.sender) >= config.minPassToken,
-            "Not Enough Swap Token"
+            "Not Enough Pass Token"
+        );
+        require(
+            config.totalExchanged + tokenAAmount <= IERC20(config.tokenA).balanceOf(address(this)),
+            "TokenA Not Enough"
         );
 
         config.tokenB.safeTransferFrom(msg.sender, address(this), tokenBAmount);
@@ -90,8 +109,10 @@ contract FairLaunch is ReentrancyGuard, Ownable {
 
     function claim() external nonReentrant onlyEnded {
         require(config.totalExchanged < config.minTotalExchange, "Claim not available");
+        require(config.tokenABPair != address(0), "Pair not created");
         uint256 tokenAAmount = exchangedAmount[msg.sender];
         require(tokenAAmount > 0, "No tokens to claim");
+        require(config.tokenA.balanceOf(address(this)) >= tokenAAmount, "Not enough tokens to claim");
 
         exchangedAmount[msg.sender] = 0;
         config.tokenA.safeTransfer(msg.sender, tokenAAmount);
@@ -141,16 +162,6 @@ contract FairLaunch is ReentrancyGuard, Ownable {
         // 3. Set the pair (Token A and Token B)
         IPancakeFactory factory = IPancakeFactory(swapRouter.factory());
         config.tokenABPair = factory.getPair(address(config.tokenA), address(config.tokenB));
-
-        uint256 tokenA = config.tokenA.balanceOf(address(this));
-        if (tokenA > 0) {
-            config.tokenA.safeTransfer(owner(), tokenA);
-        }
-
-        uint256 tokenB = config.tokenB.balanceOf(address(this));
-        if (tokenB > 0) {
-            config.tokenB.safeTransfer(owner(), tokenB);
-        }
 
         emit SwapPoolCreated(address(config.tokenA), address(config.tokenB), tokenAAmount, tokenBAmount);
     }
