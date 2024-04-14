@@ -31,6 +31,7 @@ contract FairLaunch is ReentrancyGuard, Ownable {
     }
 
     LaunchConfig public config;
+    bool public refundable = false;
 
     event Deposited(address indexed user, uint256 tokenAAmount);
     event Exchanged(address indexed user, uint256 tokenBAmount, uint256 tokenAAmount);
@@ -71,7 +72,13 @@ contract FairLaunch is ReentrancyGuard, Ownable {
         _;
     }
 
-    function depositTokenA(uint256 tokenAAmount) external nonReentrant {
+    modifier pairNotExist() {
+        address pair = getPair();
+        require(pair == address(0), "Pair already created");
+        _;
+    }
+
+    function depositTokenA(uint256 tokenAAmount) external nonReentrant pairNotExist {
         config.tokenA.safeTransfer(msg.sender, tokenAAmount);
         emit Deposited(msg.sender, tokenAAmount);
     }
@@ -84,7 +91,7 @@ contract FairLaunch is ReentrancyGuard, Ownable {
         config.tokenB.safeTransfer(msg.sender, remainingTokenB);
     }
 
-    function exchange(uint256 tokenBAmount) external nonReentrant onlyStarted {
+    function exchange(uint256 tokenBAmount) external nonReentrant onlyStarted pairNotExist {
         uint256 tokenAAmount = tokenBAmount * config.exchangeRate;
         uint256 userExchangedAmount = exchangedAmount[msg.sender] + tokenAAmount;
 
@@ -94,10 +101,8 @@ contract FairLaunch is ReentrancyGuard, Ownable {
             config.minPassToken <= 0 || IERC20(config.passToken).balanceOf(msg.sender) >= config.minPassToken,
             "Not Enough Pass Token"
         );
-        require(
-            config.totalExchanged + tokenAAmount <= IERC20(config.tokenA).balanceOf(address(this)),
-            "TokenA Not Enough"
-        );
+        require(config.totalExchanged + tokenAAmount <= config.tokenA.balanceOf(address(this)), "TokenA Not Enough");
+        require(tokenBAmount <= IERC20(config.tokenB).balanceOf(msg.sender), "TokenB Not Enough");
 
         config.tokenB.safeTransferFrom(msg.sender, address(this), tokenBAmount);
 
@@ -121,7 +126,7 @@ contract FairLaunch is ReentrancyGuard, Ownable {
     }
 
     function refund() external nonReentrant onlyEnded {
-        require(config.totalExchanged < config.minTotalExchange, "Refund not available");
+        require(config.totalExchanged < config.minTotalExchange || refundable, "Refund not available");
         uint256 tokenAAmount = exchangedAmount[msg.sender];
         require(tokenAAmount > 0, "No tokens to refund");
         uint256 tokenBAmount = tokenAAmount / config.exchangeRate;
@@ -135,13 +140,19 @@ contract FairLaunch is ReentrancyGuard, Ownable {
         emit Refunded(msg.sender, tokenAAmount);
     }
 
-    function createSwapPool() external nonReentrant onlyEnded {
+    function createPair() external nonReentrant onlyEnded {
         require(config.totalExchanged >= config.minTotalExchange, "Not reached minimum total exchange");
         require(config.tokenABPair == address(0), "Pair already created");
 
         uint256 tokenBAmount = config.tokenB.balanceOf(address(this));
         uint256 tokenAAmount = tokenBAmount * config.exchangeRate;
         require(tokenAAmount <= config.tokenA.balanceOf(address(this)), "Not enough token A");
+
+        address pair = getPair();
+        if (pair != address(0)) {
+            refundable = true;
+            return;
+        }
 
         // 1. Approve Swap Router to spend Token A and Token B
         config.tokenA.approve(address(swapRouter), tokenAAmount);
@@ -164,5 +175,13 @@ contract FairLaunch is ReentrancyGuard, Ownable {
         config.tokenABPair = factory.getPair(address(config.tokenA), address(config.tokenB));
 
         emit SwapPoolCreated(address(config.tokenA), address(config.tokenB), tokenAAmount, tokenBAmount);
+    }
+
+    function getPair() public view returns (address) {
+        IPancakeFactory factory = IPancakeFactory(swapRouter.factory());
+        (address ta, address tb) = (address(config.tokenA), address(config.tokenB));
+        (address token0, address token1) = ta < tb ? (ta, tb) : (tb, ta);
+        address pair = factory.getPair(address(token0), address(token1));
+        return pair;
     }
 }
