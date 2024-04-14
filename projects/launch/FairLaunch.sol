@@ -52,6 +52,7 @@ contract FairLaunch is ReentrancyGuard, Ownable {
             _config.minTotalExchange <= _config.maxTotalExchange,
             "Min total exchange must be less than or equal to max total exchange"
         );
+        require(address(_swapRouter) != address(0), "Swap router not set");
 
         swapRouter = _swapRouter;
         config = _config;
