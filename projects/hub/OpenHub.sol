@@ -24,7 +24,7 @@ contract OpenHub is Signable {
 
         require(IERC20(token).balanceOf(address(this)) > amount, "Balance Not Enough");
 
-        IERC20(token).transfer(to, amount);
+        IERC20(token).safeTransfer(to, amount);
     }
 
     function _sendNative(address to, uint256 amount) internal {

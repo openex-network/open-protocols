@@ -80,7 +80,7 @@ contract FairLaunch is ReentrancyGuard, Ownable {
     }
 
     function depositTokenA(uint256 tokenAAmount) external nonReentrant pairNotExist {
-        config.tokenA.safeTransfer(msg.sender, tokenAAmount);
+        config.tokenA.safeTransferFrom(msg.sender, address(this), tokenAAmount);
         emit Deposited(msg.sender, tokenAAmount);
     }
 
