@@ -89,6 +89,7 @@ contract OpenStaking is ERC20, Ownable, ReentrancyGuard {
             _mint(msg.sender, _tokenAmount);
         } else {
             uint256 _share = (_tokenAmount * totalShare) / totalToken;
+            require(_share > 0, "Open Staking: Share should be greater than 0");
             _mint(msg.sender, _share);
         }
 
