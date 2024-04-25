@@ -114,7 +114,7 @@ contract FairLaunch is ReentrancyGuard, Ownable {
     }
 
     function claim() external nonReentrant onlyEnded {
-        require(config.totalExchanged < config.minTotalExchange, "Claim not available");
+        require(config.totalExchanged >= config.minTotalExchange, "Claim not available");
         require(config.tokenABPair != address(0), "Pair not created");
         uint256 tokenAAmount = exchangedAmount[msg.sender];
         require(tokenAAmount > 0, "No tokens to claim");
