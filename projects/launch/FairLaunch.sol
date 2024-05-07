@@ -85,7 +85,6 @@ contract FairLaunch is ReentrancyGuard, Ownable {
     }
 
     function withdrawRemainingTokens() external onlyOwner onlyClosed {
-        require(config.totalExchanged < config.minTotalExchange, "Withdraw not available");
         uint256 remainingTokenA = config.tokenA.balanceOf(address(this));
         config.tokenA.safeTransfer(msg.sender, remainingTokenA);
         uint256 remainingTokenB = config.tokenB.balanceOf(address(this));
@@ -147,7 +146,7 @@ contract FairLaunch is ReentrancyGuard, Ownable {
 
         uint256 tokenBAmount = config.tokenB.balanceOf(address(this));
         uint256 tokenAAmount = tokenBAmount * config.exchangeRate;
-        require(tokenAAmount <= config.tokenA.balanceOf(address(this)), "Not enough token A");
+        require(config.totalExchanged + tokenAAmount <= config.tokenA.balanceOf(address(this)), "TokenA Not Enough");
 
         address pair = getPair();
         if (pair != address(0)) {

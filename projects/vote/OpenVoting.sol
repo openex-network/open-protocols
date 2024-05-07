@@ -65,6 +65,8 @@ contract OpenVoting is ERC20, Ownable, Pausable, ReentrancyGuard {
 
         proposals.push(openProposal);
 
+        lastVotingRound[msg.sender] = proposals.length;
+
         emit ProposalCreated(msg.sender, title, duration);
     }
 
