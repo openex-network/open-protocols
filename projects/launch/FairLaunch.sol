@@ -144,12 +144,16 @@ contract FairLaunch is ReentrancyGuard, Ownable {
         require(config.totalExchanged >= config.minTotalExchange, "Not reached minimum total exchange");
         require(config.tokenABPair == address(0), "Pair already created");
 
-        uint256 tokenBAmount = config.tokenB.balanceOf(address(this));
-        uint256 tokenAAmount = tokenBAmount * config.exchangeRate;
-        require(config.totalExchanged + tokenAAmount <= config.tokenA.balanceOf(address(this)), "TokenA Not Enough");
-
         address pair = getPair();
         if (pair != address(0)) {
+            refundable = true;
+            return;
+        }
+
+        uint256 tokenBAmount = config.tokenB.balanceOf(address(this));
+        uint256 tokenAAmount = tokenBAmount * config.exchangeRate;
+
+        if (config.totalExchanged + tokenAAmount > config.tokenA.balanceOf(address(this))) {
             refundable = true;
             return;
         }
