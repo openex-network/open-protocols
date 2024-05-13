@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interface/IPancakeFactory.sol";
 import "./interface/IPancakeRouter02.sol";
+import "./interface/IPancakePair.sol";
 
 contract FairLaunch is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
@@ -146,8 +147,11 @@ contract FairLaunch is ReentrancyGuard, Ownable {
 
         address pair = getPair();
         if (pair != address(0)) {
-            refundable = true;
-            return;
+            (uint112 _reserve0, uint112 _reserve1, ) = IPancakePair(pair).getReserves();
+            if (_reserve0 == 0 || _reserve1 == 0) {
+                refundable = true;
+                return;
+            }
         }
 
         uint256 tokenBAmount = config.tokenB.balanceOf(address(this));
