@@ -148,7 +148,7 @@ contract FairLaunch is ReentrancyGuard, Ownable {
         address pair = getPair();
         if (pair != address(0)) {
             (uint112 _reserve0, uint112 _reserve1, ) = IPancakePair(pair).getReserves();
-            if (_reserve0 == 0 || _reserve1 == 0) {
+            if (_reserve0 != 0 || _reserve1 != 0) {
                 refundable = true;
                 return;
             }
