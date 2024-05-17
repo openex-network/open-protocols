@@ -74,13 +74,16 @@ contract FairLaunch is ReentrancyGuard, Ownable {
         _;
     }
 
-    modifier pairNotExist() {
+    modifier noReserveInPair() {
         address pair = getPair();
-        require(pair == address(0), "Pair already created");
+        if (pair != address(0)) {
+            (uint112 _reserve0, uint112 _reserve1, ) = IPancakePair(pair).getReserves();
+            require(_reserve0 == 0 && _reserve1 == 0, "Pair already created");
+        }
         _;
     }
 
-    function depositTokenA(uint256 tokenAAmount) external nonReentrant pairNotExist {
+    function depositTokenA(uint256 tokenAAmount) external nonReentrant noReserveInPair {
         config.tokenA.safeTransferFrom(msg.sender, address(this), tokenAAmount);
         emit Deposited(msg.sender, tokenAAmount);
     }
@@ -92,7 +95,7 @@ contract FairLaunch is ReentrancyGuard, Ownable {
         config.tokenB.safeTransfer(msg.sender, remainingTokenB);
     }
 
-    function exchange(uint256 tokenBAmount) external nonReentrant onlyStarted pairNotExist {
+    function exchange(uint256 tokenBAmount) external nonReentrant onlyStarted noReserveInPair {
         uint256 tokenAAmount = tokenBAmount * config.exchangeRate;
         uint256 userExchangedAmount = exchangedAmount[msg.sender] + tokenAAmount;
 
