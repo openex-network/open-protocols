@@ -15,7 +15,7 @@ contract OpenTimeLock is ReentrancyGuard {
         uint128 periodFinish;
         uint128 periodStart;
         address token;
-        address reciever;
+        address receiver;
         uint256 amount;
     }
     Config public config;
@@ -23,21 +23,21 @@ contract OpenTimeLock is ReentrancyGuard {
     event TokenLocked(uint256 amount);
     event TokenUnlocked(uint256 amount);
 
-    constructor(address _token, address _reciever, uint128 _periodStart, uint128 _duration) {
-        require(address(_token) != address(0), "Open Time Lock: _token cannot be the zero address");
-        require(_periodStart >= block.timestamp, "Open Time Lock: _periodStart shouldn't be in the past");
-        require(_duration > 0, "Open Time Lock: Invalid duration");
+    constructor(address _token, address _receiver, uint128 _periodStart, uint128 _duration) {
+        require(address(_token) != address(0), "OTL: _token cannot be the zero address");
+        require(_periodStart >= block.timestamp, "OTL: _periodStart shouldn't be in the past");
+        require(_duration > 0, "OTL: Invalid duration");
 
         uint128 _periodFinish = _periodStart + _duration;
         config.token = _token;
-        config.reciever = _reciever;
+        config.receiver = _receiver;
         config.periodStart = _periodStart;
         config.periodFinish = _periodFinish;
         config.amount = 0;
     }
 
     function lock(uint256 _tokenAmount) external nonReentrant {
-        require(block.timestamp < config.periodFinish, "Open Time Lock: Lock period has ended");
+        require(block.timestamp < config.periodStart, "OTL: Lock period has already started");
 
         IERC20(config.token).safeTransferFrom(msg.sender, address(this), _tokenAmount);
         config.amount += _tokenAmount;
@@ -46,10 +46,12 @@ contract OpenTimeLock is ReentrancyGuard {
     }
 
     function unlock() external nonReentrant {
-        require(block.timestamp > config.periodStart, "Open Time Lock: Lock period has not started");
+        require(block.timestamp > config.periodStart, "OTL: Lock period has not started");
 
         uint256 unlockedTokenAmount = getUnlockedTokenAmount();
-        IERC20(config.token).safeTransfer(config.reciever, unlockedTokenAmount);
+        require(unlockedTokenAmount > 0,"OTL: No token to unlock");
+
+        IERC20(config.token).safeTransfer(config.receiver, unlockedTokenAmount);
 
         emit TokenUnlocked(unlockedTokenAmount);
     }

@@ -64,7 +64,7 @@ contract OpenStaking is ERC20, Ownable, ReentrancyGuard {
 
     function addRewardToken(uint256 _tokenAmount) external nonReentrant {
         Config memory cfg = _config;
-        require(block.timestamp < cfg.periodFinish, "Open Staking: Adding rewards is forbidden");
+        require(block.timestamp < cfg.periodStart, "Open Staking: Adding rewards is forbidden");
 
         _stakeToken.safeTransferFrom(msg.sender, address(this), _tokenAmount);
         cfg.totalReward += _tokenAmount;
