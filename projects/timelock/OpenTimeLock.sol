@@ -49,7 +49,7 @@ contract OpenTimeLock is ReentrancyGuard {
         require(block.timestamp > config.periodStart, "OTL: Lock period has not started");
 
         uint256 unlockedTokenAmount = getUnlockedTokenAmount();
-        require(unlockedTokenAmount > 0,"OTL: No token to unlock");
+        require(unlockedTokenAmount > 0, "OTL: No token to unlock");
 
         IERC20(config.token).safeTransfer(config.receiver, unlockedTokenAmount);
 
@@ -57,7 +57,12 @@ contract OpenTimeLock is ReentrancyGuard {
     }
 
     function getUnlockedTokenAmount() public view returns (uint256) {
-        return IERC20(config.token).balanceOf(address(this)) - getLockedTokenAmount();
+        uint256 balance = IERC20(config.token).balanceOf(address(this));
+        uint256 lockedAmount = getLockedTokenAmount();
+        if (balance <= lockedAmount) {
+            return 0;
+        }
+        return balance - lockedAmount;
     }
 
     function getLockedTokenAmount() public view returns (uint256) {
