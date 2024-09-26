@@ -80,4 +80,22 @@ contract OpenTimeLock is ReentrancyGuard {
 
         return (remainingTime * config.amount) / duration;
     }
+
+    function getLockStatus()
+        public
+        view
+        returns (
+            uint256 totalLocked,
+            uint256 currentlyLocked,
+            uint256 totalUnlocked,
+            uint256 actualBalance,
+            uint256 withdrawable
+        )
+    {
+        totalLocked = config.amount;
+        currentlyLocked = getLockedTokenAmount();
+        totalUnlocked = totalLocked - currentlyLocked;
+        actualBalance = IERC20(config.token).balanceOf(address(this));
+        withdrawable = getUnlockedTokenAmount();
+    }
 }
